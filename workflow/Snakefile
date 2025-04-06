@@ -4,7 +4,7 @@ include: "rules/download.smk"
 
 rule all:
     input:
-        f"{RESULTS}/archs.tsv",
+        f"{RESULTS}/absence_presence.tsv",
 
 
 rule hmmer:
@@ -205,4 +205,17 @@ rule get_archs:
     shell:
         """
 workflow/scripts/archs.R {input} >| {output}
+"""
+
+
+rule get_absence_presence:
+    input:
+        taxa=rules.join_genomes_taxallnomy.output,
+        proteins=rules.get_neighbors.output,
+        domains=rules.get_archs.output.archs,
+    output:
+        absence_presence=f"{RESULTS}/absence_presence.tsv",
+    shell:
+        """
+workflow/scripts/absence_presence.R {input} >| {output}
 """

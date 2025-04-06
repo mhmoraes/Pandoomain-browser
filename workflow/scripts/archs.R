@@ -83,7 +83,7 @@ archMEM_to_archPF <- function(arch_mem) {
 }
 
 archsPF <- archsMEM |>
-  mutate(archsPF = archMEM_to_archPF(archMEM))
+  mutate(archPF = archMEM_to_archPF(archMEM))
 
 # archs all ----
 
