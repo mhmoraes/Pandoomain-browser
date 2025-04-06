@@ -39,7 +39,7 @@ ranks <- read_tsv(TAXA, show_col_types = FALSE) |>
 proteins <- read_tsv(PROTEINS, show_col_types = FALSE) |>
   select(genome, pid)
 domains <- read_tsv(DOMAINS, show_col_types = FALSE) |>
-  select(pid, domain)
+  select(pid, archPF)
 
 # TaxID 1-m Genomes m-m Proteins m-m Domains
 # 1-1 one-to-one
@@ -59,7 +59,7 @@ absence_presence <- TGPD |>
   group_by(genome) |>
   summarize(
     tax_id = unique(tax_id),
-    domains = str_flatten(unique(domain), collapse = ",")
+    domains = str_flatten(unique(domain), collapse = "|")
   ) |>
   left_join(ranks, join_by(genome, tax_id)) |>
   relocate(genome, tax_id, species)
