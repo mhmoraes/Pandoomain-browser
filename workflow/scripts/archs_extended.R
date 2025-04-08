@@ -8,8 +8,8 @@ suppressPackageStartupMessages({
 
 argv <- commandArgs(trailingOnly = TRUE)
 
-ARCHS <- argv[[1]]
-NEIGHBORS <- argv[[2]]
+NEIGHBORS <- argv[[1]]
+ARCHS <- argv[[2]]
 
 # ARCHS <- "tests/results/archs.tsv"
 # NEIGHBORS <- "tests/results/neighbors.tsv"
@@ -96,4 +96,6 @@ out |>
     starto_ext, endo_ext, lengtho_ext, strands,
     archMEM, archPF, archIPR,
     archMEM_ext, archPF_ext, archIPR_ext
-  )
+  ) |>
+  format_tsv() |>
+  writeLines(stdout(), sep = "")

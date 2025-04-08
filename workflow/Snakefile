@@ -5,6 +5,7 @@ include: "rules/download.smk"
 rule all:
     input:
         f"{RESULTS}/absence_presence.tsv",
+        f"{RESULTS}/hits.tsv",
 
 
 rule hmmer:
@@ -218,4 +219,16 @@ rule get_absence_presence:
     shell:
         """
 workflow/scripts/absence_presence.R {input} >| {output}
+"""
+
+
+rule get_hits:
+    input:
+        neighbors=rules.get_neighbors.output.neighbors,
+        archs=rules.get_archs.output.archs,
+    output:
+        hits=f"{RESULTS}/hits.tsv",
+    shell:
+        """
+workflow/scripts/archs_extended.R {input} >| {output}
 """
