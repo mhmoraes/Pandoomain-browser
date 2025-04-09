@@ -203,15 +203,17 @@ get_neighbors <- function(gff_path, n, subjects) {
   non_found_on_hmmer <- setdiff(hits$pid, pid_queries$pid)
 
   if (length(non_found_on_gff) != 0) {
-    warn("Some hmmer hits weren't found on the corresponding GFF.")
-    cat("Those are the following:")
-    cat(non_found_on_gff)
+    msg <- "Some hmmer hits weren't found on the corresponding GFF."
+    msg <- paste(msg, "Those are the following:\n", sep = "\n")
+    msg <- paste(non_found_on_gff, sep = "\t")
+    warn(msg)
   }
 
   if (length(non_found_on_hmmer) != 0) {
-    warn("gff subsetting is finding genes non in the subects table.")
-    cat("Those are the following:")
-    cat(non_found_on_gff)
+    msg <- "gff subsetting is finding genes non in the subects table."
+    msg <- paste(msg, "Those are the following:\n", sep = "\n")
+    msg <- paste(non_found_on_hmmer, sep = "\t")
+    warn(msg)
   }
 
   rows <- hits$row
