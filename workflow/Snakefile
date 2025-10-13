@@ -11,7 +11,7 @@ rule hmmer_input:
     input:
         rules.download_genomes.output.genomes,
     output:
-        f"{RESULTS}/.input_faas.txt",
+       f"{RESULTS}/.input_faas.txt",
     params:
         results=f"{RESULTS}",
     shell:
@@ -31,6 +31,7 @@ rule hmmer:
         r"""
 workflow/scripts/hmmer.py {params} {input} {output}
 """
+
 
 
 rule get_neighbors:

@@ -55,7 +55,6 @@ extract_genome <- function(path) {
   str_extract(path, GENOME_RE)
 }
 
-
 read_gff <- function(path) {
   OUT_COLS <- c(
     "genome",
