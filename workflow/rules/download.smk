@@ -69,13 +69,17 @@ rule taxallnomy_targz:
     retries: 3
     shell:
         """
-        aria2c --dir {RESULTS}\
-            --continue=true --split 12\
-            --max-connection-per-server=16\
-            --min-split-size=1M\
-            --out={params.output_name}\
-            --quiet\
-            {params.url}
+        ( aria2c --dir {RESULTS} \
+                 --continue=true --split=12 \
+                 --max-connection-per-server=16 \
+                 --min-split-size=1M \
+                 --out={params.output_name} \
+                 --quiet \
+                 {params.url} \
+          ) || \
+        wget -O {RESULTS}/{params.output_name} {params.url}
+        # sanity check: ensure we didn’t get an HTML page
+        file {RESULTS}/{params.output_name} | grep -qi 'gzip compressed data'
         """
 
 
