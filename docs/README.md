@@ -37,7 +37,6 @@ Example link for bacterial assembly IDs:
 ```txt
 GCF_001286845.1 # my favorite genome
 GCA_021491795.1 # this is a comment
-GCF_001585665.1 # negative on YwqJ & YwqL proteins
 ```
 
 ### Domains
