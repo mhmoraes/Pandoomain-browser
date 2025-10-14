@@ -1,4 +1,4 @@
-<h1 align="center"> <img src="../pics/banner_docs.svg" width="2048"> </h1>
+<h1 align="center"> <img src="../pics/banner.svg" width="2048"> </h1>
 
 ---
 
