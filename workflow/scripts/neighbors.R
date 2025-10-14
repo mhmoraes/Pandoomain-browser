@@ -6,7 +6,7 @@
 # OUTPUT: neighbors.tsv to stdout
 
 # It operates on the following columns
-# genome, pid, queries
+# genome, pid, query
 # Any input table with those columns will do
 
 # Globals ----
@@ -21,6 +21,7 @@ suppressPackageStartupMessages({
 
 
 ARGV <- commandArgs(trailingOnly = TRUE)
+DEBUG <- FALSE
 
 
 if (!interactive()) {
@@ -36,15 +37,18 @@ if (!interactive()) {
 }
 
 
-HMMER <- read_tsv(HMMER_FILE, show_col_types = FALSE)
-GENOMES <- unique(HMMER$genome)
-GFFS_PATHS <- str_c(GENOMES_DIR, "/", GENOMES, "/", GENOMES, ".gff")
-
 # multicore is faster, but does not work on interactive session
 if (interactive()) plan(multisession, workers = CORES) else plan(multicore, workers = CORES)
 
 
-SELECT <- c("genome", "nei", "neioff", "order", "pid", "gene", "product", "start", "end", "strand", "frame", "locus_tag", "contig", "queries")
+# output cols
+SELECT <- c(
+  "genome", "neid", "neoff",
+  "order", "pid", "gene",
+  "product", "start", "end",
+  "strand", "frame", "locus_tag",
+  "contig", "queries"
+)
 
 
 # Helpers ----
@@ -147,54 +151,90 @@ print_tibble <- function(tib) {
     writeLines(stdout(), sep = "")
 }
 
-queries2onehot <- function(neighbors) {
-  queries_onehot <- neighbors |>
-    group_by(genome, pid) |>
-    reframe(query = unlist(queries)) |>
-    mutate(presence = TRUE) |>
-    distinct() |>
-    pivot_wider(
-      names_from = query,
-      values_from = presence,
-      values_fill = FALSE,
-      names_sort = TRUE
-    )
-
-  out <- left_join(queries_onehot, neighbors, join_by(genome, pid),
-    relationship = "many-to-many"
-  ) |>
-    relocate(all_of(SELECT)) |>
-    arrange(genome, nei, neioff)
-
-  out
-}
-
 # Code ----
 
+get_neighbors <- function(gff_path, n, subjects) {
+  # Find all the neighborhoods on a given genome
+  # A genome is specified by an existing gff file
 
-process_gff <- function(gff, hmmer) {
-  queries <- hmmer$queries
-  names(queries) <- hmmer$pid
+  # Input:
+  #
+  #   gff_path: character
+  #     A valid gff_path
+  #
+  #   n: integer
+  #     At most +/- n neighbors to extract
+  #
+  #   subjects: tibble
+  #     A table with target genes, it contains
+  #     at least the following cols:
+  #     genome, pid, query
 
-  pids <- unique(hmmer$pid)
+  # Output:
+  #   neighborhoods_on_genome: tibble
+
+  gff <- read_gff(gff_path)
+
+  # Add row numbers to extract neighborhood
+  # A neighborhood is basically the context (+- rows) around a hit
+  gff <- gff |>
+    mutate(row = 1:nrow(gff)) |>
+    relocate(row)
+
+  igenome <- extract_genome(gff_path)
+
+  # Filter by genome and reshape the subjects data to
+  # expose all the queries that found an specific hit
+  pid_queries <- subjects |>
+    filter(genome == igenome) |>
+    distinct(genome, pid, query) |>
+    group_by(pid) |>
+    summarize(queries = list(query))
+
+  queries <- pid_queries$queries
+  names(queries) <- pid_queries$pid
 
   hits <- gff |>
-    filter(pid %in% pids)
+    filter(pid %in% pid_queries$pid)
+
+  non_found_on_gff <- setdiff(pid_queries$pid, hits$pid)
+  non_found_on_hmmer <- setdiff(hits$pid, pid_queries$pid)
+
+  if (length(non_found_on_gff) != 0) {
+    msg <- "Some hmmer hits weren't found on the corresponding GFF."
+    msg <- paste(msg, "Those are the following:\n", sep = "\n")
+    msg <- paste(non_found_on_gff, sep = "\t")
+    warn(msg)
+  }
+
+  if (length(non_found_on_hmmer) != 0) {
+    msg <- "gff subsetting is finding genes non in the subects table."
+    msg <- paste(msg, "Those are the following:\n", sep = "\n")
+    msg <- paste(non_found_on_hmmer, sep = "\t")
+    warn(msg)
+  }
 
   rows <- hits$row
   pids <- hits$pid
 
-  starts <- if_else(rows + N <= nrow(gff), rows + N, nrow(gff))
-  ends <- if_else(rows - N >= 1, rows - N, 1)
+  # Check boundaries
+  starts <- if_else(rows + n <= nrow(gff), rows + n, nrow(gff))
+  ends <- if_else(rows - n >= 1, rows - n, 1)
 
   out <- vector(length = length(rows), mode = "list")
+
+  # Iterate over all the hits found on a genome
+  # Extracting the context of each hit
   for (i in seq_along(rows)) {
-    matched_queries <- queries[pids[i]]
+    # Which queries found current hit?
+    matched_queries <- queries[[pids[[i]]]]
 
     s <- starts[i]
     e <- ends[i]
     icontig <- gff[rows[i], ]$contig
 
+    # Extract the hit and its context
+    # checking that they are on the same contig
     subgff <- gff[s:e, ] |>
       filter(contig == icontig)
 
@@ -203,56 +243,43 @@ process_gff <- function(gff, hmmer) {
     top <- max(subgff$row)
     neiseqs <- get_neiseq(bottom, center, top)
 
+    # Format the output
     outi <- subgff |>
       mutate(
-        nei = i,
-        neioff = neiseqs,
-        queries = matched_queries
+        neid = i,
+        neoff = neiseqs,
+        queries = str_flatten(matched_queries, collapse = ",")
       )
 
     out[[i]] <- outi
   }
 
+  # All neighborhoods found on a given genome
   bind_rows(out)
 }
 
+# Main ----
 
-get_neighbors <- function(gff_path) {
-  gff <- read_gff(gff_path)
-  gff <- gff |>
-    mutate(row = 1:nrow(gff)) |>
-    relocate(row)
+hmmer <- read_tsv(HMMER_FILE, show_col_types = FALSE)
 
-  igenome <- extract_genome(gff_path)
+genomes <- unique(hmmer$genome)
+gffs_paths <- str_c(GENOMES_DIR, "/", genomes, "/", genomes, ".gff")
 
-  hmmer <- HMMER |>
-    filter(genome == igenome) |>
-    distinct(genome, pid, query) |>
-    group_by(pid) |>
-    summarize(queries = list(query))
+main <- partial(get_neighbors, n = N, subjects = hmmer)
 
-  process_gff(gff, hmmer) |>
-    select(all_of(SELECT))
+if (DEBUG) {
+  # A simpler map, easier to debug with breakpoints
+  done <- map(gffs_paths, possibly(main, tibble()))
+} else {
+  # Parallel map for full power
+  done <- future_map(gffs_paths, possibly(main, tibble()))
 }
-
-
-MAIN <- function(gff_path) {
-  tryCatch(
-    error = function(cnd) {
-      msg <- glue("Call: get_neignbors({gff_path})\n Error: {cnd}")
-      stop(msg)
-    },
-    {
-      get_neighbors(gff_path)
-    }
-  )
-}
-
-
-done <- future_map(GFFS_PATHS, possibly(MAIN, tibble()))
 
 neighbors <- bind_rows(done)
+stopifnot("Empty Output." = nrow(neighbors) > 0)
 
-neighbors |>
-  queries2onehot() |>
-  print_tibble()
+if (!interactive()) {
+  neighbors |>
+    select(all_of(SELECT)) |>
+    print_tibble()
+}

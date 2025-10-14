@@ -6,21 +6,13 @@ suppressPackageStartupMessages({
 
 argv <- commandArgs(trailingOnly = TRUE)
 
-
-# Inputs
 TAXA <- argv[[1]]
-PROTEINS <- argv[[2]]
-DOMAINS <- argv[[3]]
-
-# Outputs
-OUT_TGPD <- argv[[4]]
-OUT_ABSENCE_PRESENCE <- argv[[5]]
+HITS <- argv[[2]]
+ARCHS <- argv[[3]]
 
 # TAXA <- "tests/results/genomes_ranks.tsv"
-# PROTEINS <- "tests/results/hmmer.tsv"
-# DOMAINS <- "tests/results/archs.tsv"
-# OUT_TGPD <- "tgpd.tsv"
-# OUT_ABSENCE_PRESENCE <- "abs.tsv"
+# HITS <- "tests/results/hmmer.tsv"
+# ARCHS <- "tests/results/archs.tsv"
 
 
 TAXA_SEL <- c(
@@ -33,44 +25,22 @@ TAXA_SEL <- c(
 
 ranks <- read_tsv(TAXA, show_col_types = FALSE) |>
   select(all_of(TAXA_SEL))
-proteins <- read_tsv(PROTEINS, show_col_types = FALSE) |>
+hits <- read_tsv(HITS, show_col_types = FALSE) |>
   select(genome, pid)
-domains <- read_tsv(DOMAINS, show_col_types = FALSE) |>
-  select(pid, domain)
-
-# Taxid 1-m Genomes m-m Proteins m-m Domains
-# 1-1 one-to-one
-# 1-m one-to-many
-# m-m many-to-many
-
-TGPD <- ranks |>
-  select(tax_id, genome) |>
-  left_join(proteins, join_by(genome),
-    relationship = "many-to-many"
-  ) |>
-  left_join(domains, join_by(pid),
-    relationship = "many-to-many"
-  )
+archs <- read_tsv(ARCHS, show_col_types = FALSE) |>
+  select(pid, archPF)
 
 
-# One Hot Encoding
-absence_presence <- TGPD |>
-  select(-pid) |>
-  distinct() |>
-  mutate(presence = TRUE) |>
-  pivot_wider(
-    names_from = domain,
-    values_from = presence,
-    values_fill = FALSE,
-    names_sort = TRUE
-  ) |>
-  select(-any_of("NA"))
+archsNF <- archs |>
+  filter(!is.na(archPF)) |>
+  group_by(pid) |>
+  reframe(pfam = str_split_1(archPF, pattern = "\\|"))
 
 
-absence_presence <- absence_presence |>
-  left_join(ranks, join_by(genome, tax_id)) |>
-  relocate(genome, tax_id, species)
+genome_pfam <- left_join(hits, archsNF, join_by(pid)) |>
+  group_by(genome) |>
+  summarize(pfams = str_flatten(sort(unique(pfam)), collapse = "|"))
 
-
-write_tsv(TGPD, OUT_TGPD)
-write_tsv(absence_presence, OUT_ABSENCE_PRESENCE)
+left_join(genome_pfam, ranks) |>
+  format_tsv() |>
+  writeLines(stdout(), sep = "")

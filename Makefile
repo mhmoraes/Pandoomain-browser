@@ -3,8 +3,8 @@ SHELL = /usr/bin/env bash
 SNAKEFILE = workflow/Snakefile
 PWD = $(shell pwd)
 
-ISCAN_VERSION = 5.73-104.0
-MINIFORGE_VERSION = 25.1.1-0
+ISCAN_VERSION = 5.76-107.0
+MINIFORGE_VERSION = 25.3.1-0
 
 CORES = all
 # Needs to be an absolute path
@@ -111,8 +111,8 @@ debug: $(SNAKEFILE) $(GENOMES) $(CONFIG)
 style:
 	snakefmt workflow
 	black workflow utils tests
-	/usr/bin/Rscript -e 'styler::style_dir("workflow")'
-	/usr/bin/Rscript -e 'styler::style_dir("utils")'
+	Rscript -e 'styler::style_dir("workflow")'
+	Rscript -e 'styler::style_dir("utils")'
 	isort --float-to-top -- utils workflow workflow/Snakefile
 	isort --float-to-top --ext smk -- utils workflow
 

@@ -5,33 +5,20 @@ include: "rules/download.smk"
 rule all:
     input:
         f"{RESULTS}/absence_presence.tsv",
-
-
-rule hmmer_input:
-    input:
-        rules.download_genomes.output.genomes,
-    output:
-       f"{RESULTS}/.input_faas.txt",
-    params:
-        results=f"{RESULTS}",
-    shell:
-        """
-fd -HI -e faa '^GC' {params} >| {output}
-"""
+        f"{RESULTS}/hits.tsv",
 
 
 rule hmmer:
     input:
-        faas=rules.hmmer_input.output,
+        f"{RESULTS}/genomes/genomes.tsv",
     output:
-        tsv=ensure(f"{RESULTS}/hmmer.tsv", non_empty=True),
+        hmmer=ensure(f"{RESULTS}/hmmer.tsv", non_empty=True),
     params:
         queries=f"{IN_QUERIES}",
     shell:
         r"""
 workflow/scripts/hmmer.py {params} {input} {output}
 """
-
 
 
 rule get_neighbors:
@@ -127,9 +114,9 @@ rule split_faa:
 
 rule interproscan:
     input:
-        sentinel=f"{rules.split_faa.output.sentinel}",
+        sentinel=rules.split_faa.output.sentinel,
     output:
-        tsv=f"{RESULTS}/.iscan_raw.tsv",
+        iscan_raw=f"{RESULTS}/.iscan_raw.tsv",
     params:
         tmp="/tmp",
         pieces=f"{RESULTS}/.pieces_iscan",
@@ -173,8 +160,6 @@ rule interproscan:
                 str(ISCAN_TMP),
                 "--goterms",
                 "--enable-tsv-residue-annot",
-                "--applications",
-                "Pfam",
             ]
             return cmd
 
@@ -202,9 +187,9 @@ rule interproscan:
 
 rule add_header_iscan:
     input:
-        tsv=rules.interproscan.output,
+        iscan_raw=rules.interproscan.output,
     output:
-        tsv=f"{RESULTS}/iscan.tsv",
+        iscan=f"{RESULTS}/iscan.tsv",
     shell:
         """
 # Annotate headers
@@ -214,14 +199,13 @@ workflow/scripts/add_header_iscan.R {params} {input} >| {output}
 
 rule get_archs:
     input:
-        tsv=rules.add_header_iscan.output,
+        iscan=rules.add_header_iscan.output,
+        neighbors=rules.get_neighbors.output,
     output:
         archs=f"{RESULTS}/archs.tsv",
-        pidrow=f"{RESULTS}/archs_pidrow.tsv",
-        code=f"{RESULTS}/archs_code.tsv",
     shell:
         """
-workflow/scripts/archs.R {input} {output}
+workflow/scripts/archs.R {input} >| {output}
 """
 
 
@@ -231,9 +215,20 @@ rule get_absence_presence:
         proteins=rules.get_neighbors.output,
         domains=rules.get_archs.output.archs,
     output:
-        TGPD=f"{RESULTS}/TGPD.tsv",
         absence_presence=f"{RESULTS}/absence_presence.tsv",
     shell:
         """
-workflow/scripts/absence_presence.R {input} {output}
+workflow/scripts/absence_presence.R {input} >| {output}
+"""
+
+
+rule get_hits:
+    input:
+        neighbors=rules.get_neighbors.output.neighbors,
+        archs=rules.get_archs.output.archs,
+    output:
+        hits=f"{RESULTS}/hits.tsv",
+    shell:
+        """
+workflow/scripts/archs_extended.R {input} >| {output}
 """
