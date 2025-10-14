@@ -12,6 +12,11 @@
 ---
 
 ## v0.0.2
+
+I recommend using and sending patches
+to the upstream version that is at:
+https://github.com/elbecerrasoto/pandoomain
+
 ## Contents
 
 - [Description](#description)
@@ -66,11 +71,6 @@ annotates them with [`interproscan.sh`](https://github.com/ebi-pf-team/interpros
 The final results include taxonomic data for further analysis.
 
 *pandoomain* is used at the [DeMoraes Lab](https://www.demoraeslab.org/) to search for novel bacterial toxins.
-
-### Rulegraph
-
-The steps that conform the pipeline are the following:
-![rulegraph](pics/rulegraph.svg)
 
 ---
 
