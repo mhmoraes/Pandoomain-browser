@@ -27,7 +27,6 @@ plan(multicore, workers = CORES)
 neis <- read_tsv(IN, show_col_types = FALSE)
 
 
-
 neis <- neis |>
   distinct(pid, .keep_all = TRUE)
 
@@ -50,7 +49,6 @@ read_genome <- function(genome_tib) {
 
   faa
 }
-
 
 
 done <- future_map(Lgenomes, possibly(read_genome, NULL))

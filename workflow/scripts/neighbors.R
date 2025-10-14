@@ -37,7 +37,6 @@ if (!interactive()) {
 }
 
 
-
 # multicore is faster, but does not work on interactive session
 if (interactive()) plan(multisession, workers = CORES) else plan(multicore, workers = CORES)
 

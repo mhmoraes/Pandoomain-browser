@@ -51,7 +51,6 @@ neighbors <- read_tsv(NEIGHBORS)
 neighbors <- left_join(neighbors, archs, join_by(pid))
 
 
-
 neighbors <- neighbors |>
   group_by(genome, neid) |>
   mutate(
@@ -59,7 +58,6 @@ neighbors <- neighbors |>
     relarchPF = get_relative_arch(strand, neoff, archPF),
     relarchIPR = get_relative_arch(strand, neoff, archIPR)
   )
-
 
 
 out <- neighbors |>
@@ -85,7 +83,6 @@ out <- neighbors |>
     archPF_ext = join_archs(relarchPF),
     archIPR_ext = join_archs(relarchIPR)
   )
-
 
 
 out |>
