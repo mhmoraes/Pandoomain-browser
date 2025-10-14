@@ -50,9 +50,7 @@ HMM profiles for domains can be fetched from sources like PFAM. Example:
 
 ```txt
 queries
-├── PF04493_EndoV.hmm
 ├── PF04740_LXG.hmm
-├── PF14431_YwqJ.hmm
 └── PF14449_PTTG.hmm
 ```
 
