@@ -49,4 +49,4 @@ offline:
   false
 
 # add path to interproscan
-interproscan: /home/md80/mount/rdf/md80/Pandoomain/interproscan/interproscan-5.75-106.0-64-bit/interproscan-5.75-106.0/interproscan.sh
+interproscan: /home/md80/mount/rdf/md80/interproscan/interproscan-5.76-107.0
