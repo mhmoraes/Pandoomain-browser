@@ -85,8 +85,8 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
         # Mapping input TSV columns to DB columns
         cols_to_read = {
             "genome": "genome",
-            "nei": "nei",
-            "neioff": "neioff",
+            "neid": "nei",
+            "neoff": "neioff",
             "order": "gene_order",
             "pid": "pid",
             "gene": "gene",
