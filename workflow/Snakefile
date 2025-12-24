@@ -6,6 +6,10 @@ rule all:
     input:
         f"{RESULTS}/absence_presence.tsv",
         f"{RESULTS}/hits.tsv",
+        # Browser visualizer files
+        f"{RESULTS}/browser_visualizer/iscan.db",
+        f"{RESULTS}/browser_visualizer/metadata.db",
+        f"{RESULTS}/browser_visualizer/neighbors.db",
 
 
 rule hmmer:
@@ -232,3 +236,37 @@ rule get_hits:
         """
 workflow/scripts/archs_extended.R {input} >| {output}
 """
+
+
+rule browser_iscan:
+    input:
+        iscan=f"{RESULTS}/iscan.tsv",
+    output:
+        db=f"{RESULTS}/browser_visualizer/iscan.db",
+    shell:
+        """
+        python workflow/scripts/browser_iscan.py {input.iscan} {output.db}
+        """
+
+
+rule browser_metadata:
+    input:
+        metadata=f"{RESULTS}/genomes_metadata.tsv",
+    output:
+        db=f"{RESULTS}/browser_visualizer/metadata.db",
+    shell:
+        """
+        python workflow/scripts/browser_metadata.py {input.metadata} {output.db}
+        """
+
+
+rule browser_neighbors:
+    input:
+        neighbors=f"{RESULTS}/neighbors.tsv",
+    output:
+        db=f"{RESULTS}/browser_visualizer/neighbors.db",
+    shell:
+        """
+        python workflow/scripts/browser_neighbors.py {input.neighbors} {output.db}
+        """
+
