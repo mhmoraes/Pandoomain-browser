@@ -63,7 +63,7 @@ def verify_db(db_path: Path, table_name: str, expected_cols: list) -> bool:
 
 
 def main():
-    results_dir = Path("tests/results/browser_visualizer")
+    results_dir = Path("tests/results/browser_files")
     
     databases = [
         {
