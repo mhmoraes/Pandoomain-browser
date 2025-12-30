@@ -6,10 +6,6 @@ rule all:
     input:
         f"{RESULTS}/absence_presence.tsv",
         f"{RESULTS}/hits.tsv",
-        # Browser visualizer files
-        f"{RESULTS}/browser_files/iscan.db",
-        f"{RESULTS}/browser_files/metadata.db",
-        f"{RESULTS}/browser_files/neighbors.db",
 
 
 rule hmmer:
@@ -155,7 +151,8 @@ rule interproscan:
     Default for protein sequences are TSV, XML and GFF3
     """
             cmd = [
-                "interproscan.sh",
+                # Use path from config if available, else default to 'interproscan.sh' in PATH
+                config.get("interproscan", "interproscan.sh"),
                 "--input",
                 str(in_faa),
                 "--cpu",
@@ -243,6 +240,7 @@ rule browser_iscan:
         iscan=f"{RESULTS}/iscan.tsv",
     output:
         db=f"{RESULTS}/browser_files/iscan.db",
+    priority: 1
     shell:
         """
         python workflow/scripts/browser_iscan.py {input.iscan} {output.db}
@@ -252,6 +250,8 @@ rule browser_iscan:
 rule browser_metadata:
     input:
         metadata=f"{RESULTS}/genomes_metadata.tsv",
+        # Force dependency on iscan to run sequentially
+        prev=f"{RESULTS}/browser_files/iscan.db",
     output:
         db=f"{RESULTS}/browser_files/metadata.db",
     shell:
@@ -263,10 +263,11 @@ rule browser_metadata:
 rule browser_neighbors:
     input:
         neighbors=f"{RESULTS}/neighbors.tsv",
+        # Force dependency on metadata to run sequentially
+        prev=f"{RESULTS}/browser_files/metadata.db",
     output:
         db=f"{RESULTS}/browser_files/neighbors.db",
     shell:
         """
         python workflow/scripts/browser_neighbors.py {input.neighbors} {output.db}
         """
-

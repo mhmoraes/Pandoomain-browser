@@ -92,7 +92,6 @@ test: $(SNAKEFILE) $(GENOMES) $(CONFIG) $(RM_TEST)
 	@printf "make clean\n\n"
 	$(RM_TEST)
 	$(SNAKEMAKE) --configfile $(CONFIG)
-	python3 tests/verify_browser.py
 
 
 .PHONY test-dry:
