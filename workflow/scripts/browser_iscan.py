@@ -72,7 +72,7 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
     setup_database(output_db)
 
     print(f"Connecting to SQLite database: {output_db}")
-    conn = sqlite3.connect(output_db)
+    conn = sqlite3.connect(output_db, timeout=30.0)
 
     try:
         # Columns to use from the TSV (0-indexed)
