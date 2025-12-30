@@ -91,6 +91,7 @@ def tsv_to_sqlite(input_tsv: str, output_db: str) -> None:
 
     print(f"Connecting to SQLite database: {output_db}")
     conn = sqlite3.connect(output_db, timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL")
 
     print(f"Loading data from {input_tsv}...")
     try:
