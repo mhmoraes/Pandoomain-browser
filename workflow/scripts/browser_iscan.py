@@ -72,8 +72,11 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
     setup_database(output_db)
 
     print(f"Connecting to SQLite database: {output_db}")
-    conn = sqlite3.connect(output_db, timeout=30.0)
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn = sqlite3.connect(output_db, timeout=60.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
 
     try:
         # Columns to use from the TSV (0-indexed)
