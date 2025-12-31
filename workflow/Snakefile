@@ -147,12 +147,19 @@ rule interproscan:
 
         def gen_cmd(in_faa):
             """
-    Output formats:
-    Default for protein sequences are TSV, XML and GFF3
-    """
+            Output formats:
+            Default for protein sequences are TSV, XML and GFF3
+            """
+            # Handle config path: if directory, append interproscan.sh
+            raw_path = config.get("interproscan", "interproscan.sh")
+            # Only check if it looks like a path (contains slashes) to avoid checking system commands
+            if "/" in raw_path and Path(raw_path).is_dir():
+                exe = str(Path(raw_path) / "interproscan.sh")
+            else:
+                exe = raw_path
+
             cmd = [
-                # Use path from config if available, else default to 'interproscan.sh' in PATH
-                config.get("interproscan", "interproscan.sh"),
+                exe,
                 "--input",
                 str(in_faa),
                 "--cpu",
@@ -162,6 +169,7 @@ rule interproscan:
                 "--goterms",
                 "--enable-tsv-residue-annot",
             ]
+            print(f"DEBUG: Running InterProScan command: {' '.join(cmd)}")
             return cmd
 
             # main
