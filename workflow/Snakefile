@@ -5,7 +5,10 @@ include: "rules/download.smk"
 rule all:
     input:
         f"{RESULTS}/absence_presence.tsv",
-        f"{RESULTS}/hits.tsv",
+        # Browser visualizer files
+        f"{RESULTS}/browser_files/iscan.db",
+        f"{RESULTS}/browser_files/metadata.db",
+        f"{RESULTS}/browser_files/neighbors.db",
 
 
 rule hmmer:
