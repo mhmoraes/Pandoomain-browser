@@ -90,12 +90,8 @@ def tsv_to_sqlite(input_tsv: str, output_db: str) -> None:
     setup_database(output_db)
 
     print(f"Connecting to SQLite database: {output_db}")
-    conn = sqlite3.connect(output_db, timeout=60.0)
-    # WAL mode can be tricky on NFS but often helps. If it fails, we might need DELETE.
-    try:
-        conn.execute("PRAGMA journal_mode=WAL")
-    except Exception:
-        pass
+    # WAL mode removed for network drive compatibility
+    conn = sqlite3.connect(output_db, timeout=300.0)
 
     print(f"Loading data from {input_tsv}...")
     try:

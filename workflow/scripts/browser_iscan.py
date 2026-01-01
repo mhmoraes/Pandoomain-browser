@@ -72,11 +72,9 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
     setup_database(output_db)
 
     print(f"Connecting to SQLite database: {output_db}")
-    conn = sqlite3.connect(output_db, timeout=60.0)
-    try:
-        conn.execute("PRAGMA journal_mode=WAL")
-    except Exception:
-        pass
+    # WAL mode is often problematic on network drives (NFS/CIFS).
+    # Reverting to default (DELETE) mode and increasing timeout significantly.
+    conn = sqlite3.connect(output_db, timeout=300.0)
 
     try:
         # Columns to use from the TSV (0-indexed)
@@ -86,6 +84,15 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
 
         print(f"Reading and loading chunks from {input_tsv}...")
         
+        # Specify dtypes to avoid warnings and mixed type issues
+        dtypes = {
+            1: "str", # start (read as str then coerce)
+            2: "str", # stop
+            3: "str", # length
+            7: "str", # pfam
+            8: "str"  # pfam_desc
+        }
+
         reader = pd.read_csv(
             input_tsv,
             sep="\t",
@@ -93,6 +100,8 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
             chunksize=chunk_size,
             iterator=True,
             usecols=cols_to_use,
+            dtype=dtypes,
+            low_memory=False,
             comment="#",
         )
 
