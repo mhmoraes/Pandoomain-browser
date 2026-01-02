@@ -1,70 +1,45 @@
 #!/usr/bin/env python3
 """
-Convert Genome Metadata TSV to a SQLite database for the browser visualizer.
+Convert Genome Metadata TSV to a SQL dump file.
 
-This script reads the genomes_metadata.tsv output and creates a SQLite database
-indexed by genome accession. It filters for specific columns required by the visualizer.
+This script reads the genomes_metadata.tsv output and creates a SQL text file
+that can be piped into sqlite3 to create the database.
+
+RATIONALE:
+Directly writing to a SQLite database on a network file system (NFS/CIFS) often
+results in "database is locked" errors due to poor file locking implementations.
+By generating a textual SQL dump (.sql) first, we decouple data processing from
+database writing. The final DB is built in a single stream operation using the
+'sqlite3' command line tool, which avoids these locking conflicts.
 """
 
 import argparse
 import os
-import sqlite3
 import sys
-from typing import List, Optional
-
 import pandas as pd
 
 
-def setup_database(output_db: str) -> None:
+def tsv_to_sql(input_tsv: str, output_sql: str) -> None:
     """
-    Remove existing database.
-
-    Args:
-        output_db: Path to the output SQLite database.
-    """
-    if os.path.exists(output_db):
-        print(f"Removing existing database: {output_db}")
-        os.remove(output_db)
-
-
-def create_index(conn: sqlite3.Connection, table_name: str) -> None:
-    """
-    Create an index on the 'genome' column.
-
-    Args:
-        conn: SQLite connection object.
-        table_name: Name of the table to index.
-    """
-    print(f"Creating index on 'genome' for table '{table_name}'...")
-    try:
-        cursor = conn.cursor()
-        cursor.execute(f"CREATE INDEX idx_metadata_genome ON {table_name} (genome);")
-        print("  ...Index created.")
-    except Exception as e:
-        print(f"ERROR creating index: {e}", file=sys.stderr)
-
-
-def tsv_to_sqlite(input_tsv: str, output_db: str) -> None:
-    """
-    Convert the metadata TSV file to a SQLite database.
+    Convert the metadata TSV file to a SQL dump file.
 
     Args:
         input_tsv: Path to the input TSV file.
-        output_db: Path to the output SQLite database.
+        output_sql: Path to the output SQL file.
     """
     table_name = "metadata"
     required_columns = ["genome", "org", "strain"]
 
-    print(f"--- Starting TSV to SQLite Conversion for Metadata ---")
+    print(f"--- Starting TSV to SQL Dump for Metadata ---")
     print(f"Input: {input_tsv}")
-    print(f"Output: {output_db}")
+    print(f"Output: {output_sql}")
 
     if not os.path.exists(input_tsv):
         print(f"ERROR: Input file not found at '{input_tsv}'", file=sys.stderr)
         sys.exit(1)
 
     # Ensure output directory exists
-    output_dir = os.path.dirname(output_db)
+    output_dir = os.path.dirname(output_sql)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -87,48 +62,77 @@ def tsv_to_sqlite(input_tsv: str, output_db: str) -> None:
         print(f"ERROR reading header: {e}", file=sys.stderr)
         sys.exit(1)
 
-    setup_database(output_db)
-
-    print(f"Connecting to SQLite database: {output_db}")
-    # WAL mode removed for network drive compatibility
-    conn = sqlite3.connect(output_db, timeout=300.0)
-
-    print(f"Loading data from {input_tsv}...")
+    print(f"Writing SQL to: {output_sql}")
+    
     try:
-        df = pd.read_csv(input_tsv, sep="\t", usecols=cols_to_use)
-        
-        # Ensure all required columns are present
-        for col in required_columns:
-            if col not in df.columns:
-                df[col] = None
-        
-        # Reorder
-        df = df[required_columns]
+        with open(output_sql, "w") as f:
+            # Preamble for speed
+            f.write("PRAGMA synchronous = OFF;\n")
+            f.write("PRAGMA journal_mode = MEMORY;\n")
+            f.write("BEGIN TRANSACTION;\n")
+            
+            # Create Table
+            # We assume all columns are TEXT for metadata to be safe, or we could infer.
+            # Given it's metadata, TEXT is usually fine.
+            cols_def = ", ".join([f"{col} TEXT" for col in required_columns])
+            f.write(f"CREATE TABLE IF NOT EXISTS {table_name} ({cols_def});\n")
+            
+            # Create Index DDL (to be executed at the end)
+            index_sql = f"CREATE INDEX IF NOT EXISTS idx_metadata_genome ON {table_name} (genome);\n"
 
-        df.to_sql(table_name, conn, if_exists="replace", index=False)
-        print(f"  ...Data loaded into '{table_name}'.")
+            print(f"Processing data from {input_tsv}...")
+            
+            # Read and write chunks
+            chunk_size = 10000
+            reader = pd.read_csv(input_tsv, sep="\t", usecols=cols_to_use, chunksize=chunk_size)
 
-        create_index(conn, table_name)
-
+            for chunk in reader:
+                # Ensure all required columns are present
+                for col in required_columns:
+                    if col not in chunk.columns:
+                        chunk[col] = None
+                
+                # Reorder
+                chunk = chunk[required_columns]
+                
+                # Generate INSERT values efficiently
+                for row in chunk.itertuples(index=False, name=None):
+                    # Escape single quotes in strings
+                    values = []
+                    for val in row:
+                        if pd.isna(val):
+                            values.append("NULL")
+                        else:
+                            val_str = str(val).replace("'", "''")
+                            values.append(f"'{val_str}'")
+                    
+                    val_str = ", ".join(values)
+                    f.write(f"INSERT INTO {table_name} ({', '.join(required_columns)}) VALUES ({val_str});\n")
+            
+            f.write("COMMIT;\n")
+            # Create index after commit for speed
+            f.write(index_sql)
+            
     except Exception as e:
-        print(f"ERROR loading data: {e}", file=sys.stderr)
-        conn.close()
+        print(f"ERROR generating SQL: {e}", file=sys.stderr)
+        # remove incomplete file
+        if os.path.exists(output_sql):
+            os.remove(output_sql)
         sys.exit(1)
 
-    conn.close()
-    print("--- Conversion complete! ---")
+    print("--- Conversion to SQL complete! ---")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Convert Metadata TSV to SQLite DB for browser visualizer."
+        description="Convert Metadata TSV to SQL dump for browser visualizer."
     )
     parser.add_argument("input_tsv", help="Path to input TSV file")
-    parser.add_argument("output_db", help="Path to output SQLite database")
+    parser.add_argument("output_sql", help="Path to output SQL file")
     
     args = parser.parse_args()
     
-    tsv_to_sqlite(args.input_tsv, args.output_db)
+    tsv_to_sql(args.input_tsv, args.output_sql)
 
 
 if __name__ == "__main__":
