@@ -15,6 +15,7 @@ dependencies:
   - r-seqinr
   - r-furrr
   - pyhmmer=0.10.14
+  - sqlite # Required for browser DB generation
   # install_iscan.py  
   - httplib2
   - aria2

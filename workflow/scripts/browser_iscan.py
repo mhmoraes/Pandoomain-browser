@@ -1,147 +1,143 @@
 #!/usr/bin/env python3
 """
-Convert InterProScan TSV results to a SQL dump file.
+Convert InterProScan TSV results to a SQLite database for the browser visualizer.
 
-This script reads the InterProScan TSV output and creates a SQL text file
-that can be piped into sqlite3 to create the database.
-
-RATIONALE:
-Directly writing to a SQLite database on a network file system (NFS/CIFS) often
-results in "database is locked" errors due to poor file locking implementations.
-By generating a textual SQL dump (.sql) first, we decouple data processing from
-database writing. The final DB is built in a single stream operation using the
-'sqlite3' command line tool, which avoids these locking conflicts.
+This script reads the InterProScan TSV output and creates a SQLite database
+indexed by protein ID (pid). It is designed to be part of the Pandoomain pipeline.
 """
 
 import argparse
 import os
+import sqlite3
 import sys
+from pathlib import Path
+from typing import List
+
 import pandas as pd
 
 
-def tsv_to_sql(input_tsv: str, output_sql: str, chunk_size: int = 100000) -> None:
+def setup_database(output_db: str) -> None:
     """
-    Convert the iscan TSV file to a SQL dump file.
+    Remove existing database and clean up.
+
+    Args:
+        output_db: Path to the output SQLite database.
+    """
+    if os.path.exists(output_db):
+        print(f"Removing existing database: {output_db}")
+        os.remove(output_db)
+
+
+def create_index(conn: sqlite3.Connection, table_name: str) -> None:
+    """
+    Create an index on the 'pid' column.
+
+    Args:
+        conn: SQLite connection object.
+        table_name: Name of the table to index.
+    """
+    print(f"Creating index on 'pid' for table '{table_name}'...")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"CREATE INDEX idx_iscan_pid ON {table_name} (pid);")
+        print("  ...Index created.")
+    except Exception as e:
+        print(f"ERROR creating index: {e}", file=sys.stderr)
+
+
+def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> None:
+    """
+    Convert the iscan TSV file to a SQLite database.
 
     Args:
         input_tsv: Path to the input TSV file.
-        output_sql: Path to the output SQL file.
+        output_db: Path to the output SQLite database.
         chunk_size: Number of rows to process at a time.
     """
     table_name = "iscan"
 
-    print(f"--- Starting TSV to SQL Dump for InterProScan ---")
+    print(f"--- Starting TSV to SQLite Conversion for InterProScan ---")
     print(f"Input: {input_tsv}")
-    print(f"Output: {output_sql}")
+    print(f"Output: {output_db}")
 
     if not os.path.exists(input_tsv):
         print(f"ERROR: Input file not found at '{input_tsv}'", file=sys.stderr)
         sys.exit(1)
 
     # Ensure output directory exists
-    output_dir = os.path.dirname(output_sql)
+    output_dir = os.path.dirname(output_db)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    print(f"Writing SQL to: {output_sql}")
+    setup_database(output_db)
+
+    print(f"Connecting to SQLite database: {output_db}")
+    conn = sqlite3.connect(output_db)
 
     try:
         # Columns to use from the TSV (0-indexed)
         # 0: pid, 1: start, 2: stop, 3: length, 7: pfam, 8: pfam_desc
         cols_to_use = [0, 1, 2, 3, 7, 8]
         col_names = ["pid", "start", "stop", "length", "pfam", "pfam_desc"]
+
+        print(f"Reading and loading chunks from {input_tsv}...")
         
         # Specify dtypes to avoid warnings and mixed type issues
         dtypes = {
-            1: "str", # start
+            1: "str", # start (read as str then coerce)
             2: "str", # stop
             3: "str", # length
             7: "str", # pfam
             8: "str"  # pfam_desc
         }
 
-        with open(output_sql, "w") as f:
-            # Preamble
-            f.write("PRAGMA synchronous = OFF;\n")
-            f.write("PRAGMA journal_mode = MEMORY;\n")
-            f.write("BEGIN TRANSACTION;\n")
+        reader = pd.read_csv(
+            input_tsv,
+            sep="\t",
+            header=None,
+            chunksize=chunk_size,
+            iterator=True,
+            usecols=cols_to_use,
+            dtype=dtypes,
+            low_memory=False,
+            comment="#",
+        )
 
-            # Create Table - using appropriate types
-            # pid TEXT, start INTEGER, stop INTEGER, length INTEGER, pfam TEXT, pfam_desc TEXT
-            create_table_sql = (
-                f"CREATE TABLE IF NOT EXISTS {table_name} ("
-                "pid TEXT, start INTEGER, stop INTEGER, length INTEGER, pfam TEXT, pfam_desc TEXT);\n"
-            )
-            f.write(create_table_sql)
-            
-            # Index DDL
-            index_sql = f"CREATE INDEX IF NOT EXISTS idx_iscan_pid ON {table_name} (pid);\n"
+        for i, chunk in enumerate(reader):
+            print(f"  Processing chunk {i + 1}...", end="\r")
 
-            print(f"Reading and loading chunks from {input_tsv}...")
-            
-            reader = pd.read_csv(
-                input_tsv,
-                sep="\t",
-                header=None,
-                chunksize=chunk_size,
-                iterator=True,
-                usecols=cols_to_use,
-                dtype=dtypes,
-                low_memory=False,
-                comment="#",
-            )
+            chunk.columns = col_names
 
-            for i, chunk in enumerate(reader):
-                print(f"  Processing chunk {i + 1}...", end="\r")
+            # Ensure correct data types
+            chunk["start"] = pd.to_numeric(chunk["start"], errors="coerce").fillna(0).astype(int)
+            chunk["stop"] = pd.to_numeric(chunk["stop"], errors="coerce").fillna(0).astype(int)
+            chunk["length"] = pd.to_numeric(chunk["length"], errors="coerce").fillna(0).astype(int)
 
-                chunk.columns = col_names
+            chunk.to_sql(table_name, conn, if_exists="append", index=False)
+        
+        print("\nAll chunks loaded.")
 
-                # Ensure correct data types for integers
-                # We do this in python to handle empty strings/NaNs safely
-                chunk["start"] = pd.to_numeric(chunk["start"], errors="coerce").fillna(0).astype(int)
-                chunk["stop"] = pd.to_numeric(chunk["stop"], errors="coerce").fillna(0).astype(int)
-                chunk["length"] = pd.to_numeric(chunk["length"], errors="coerce").fillna(0).astype(int)
-                
-                # Generate INSERTs
-                for row in chunk.itertuples(index=False, name=None):
-                    # row structure: (pid, start, stop, length, pfam, pfam_desc)
-                    # pid (str), start (int), stop (int), length (int), pfam (str), pfam_desc (str)
-                    
-                    pid = str(row[0]).replace("'", "''") if pd.notna(row[0]) else ""
-                    start = row[1]
-                    stop = row[2]
-                    length = row[3]
-                    pfam = str(row[4]).replace("'", "''") if pd.notna(row[4]) else ""
-                    pfam_desc = str(row[5]).replace("'", "''") if pd.notna(row[5]) else ""
-                    
-                    # Construct SQL value string - integers don't need quotes
-                    val_str = f"'{pid}', {start}, {stop}, {length}, '{pfam}', '{pfam_desc}'"
-                    
-                    f.write(f"INSERT INTO {table_name} (pid, start, stop, length, pfam, pfam_desc) VALUES ({val_str});\n")
-            
-            print("\nAll chunks processed.")
-            f.write("COMMIT;\n")
-            f.write(index_sql)
+        create_index(conn, table_name)
 
     except Exception as e:
         print(f"\nERROR during processing: {e}", file=sys.stderr)
-        if os.path.exists(output_sql):
-            os.remove(output_sql)
+        conn.close()
         sys.exit(1)
 
-    print("--- Conversion to SQL complete! ---")
+    conn.close()
+    print("--- Conversion complete! ---")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Convert InterProScan TSV to SQL dump for browser visualizer."
+        description="Convert InterProScan TSV to SQLite DB for browser visualizer."
     )
     parser.add_argument("input_tsv", help="Path to input TSV file")
-    parser.add_argument("output_sql", help="Path to output SQL file")
+    parser.add_argument("output_db", help="Path to output SQLite database")
     
     args = parser.parse_args()
     
-    tsv_to_sql(args.input_tsv, args.output_sql)
+    tsv_to_sqlite(args.input_tsv, args.output_db)
 
 
 if __name__ == "__main__":

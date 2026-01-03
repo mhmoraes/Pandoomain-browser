@@ -247,18 +247,16 @@ workflow/scripts/archs_extended.R {input} >| {output}
 
 
 
+
 rule browser_iscan:
     input:
         iscan=f"{RESULTS}/iscan.tsv",
     output:
         db=f"{RESULTS}/browser_files/iscan.db",
-        sql=temp(f"{RESULTS}/browser_files/iscan.sql"),
     priority: 1
     shell:
         """
-        python workflow/scripts/browser_iscan.py {input.iscan} {output.sql}
-        rm -f {output.db}
-        sqlite3 {output.db} < {output.sql}
+        python workflow/scripts/browser_iscan.py {input.iscan} {output.db}
         """
 
 
@@ -269,12 +267,9 @@ rule browser_metadata:
         prev=f"{RESULTS}/browser_files/iscan.db",
     output:
         db=f"{RESULTS}/browser_files/metadata.db",
-        sql=temp(f"{RESULTS}/browser_files/metadata.sql"),
     shell:
         """
-        python workflow/scripts/browser_metadata.py {input.metadata} {output.sql}
-        rm -f {output.db}
-        sqlite3 {output.db} < {output.sql}
+        python workflow/scripts/browser_metadata.py {input.metadata} {output.db}
         """
 
 
@@ -285,10 +280,7 @@ rule browser_neighbors:
         prev=f"{RESULTS}/browser_files/metadata.db",
     output:
         db=f"{RESULTS}/browser_files/neighbors.db",
-        sql=temp(f"{RESULTS}/browser_files/neighbors.sql"),
     shell:
         """
-        python workflow/scripts/browser_neighbors.py {input.neighbors} {output.sql}
-        rm -f {output.db}
-        sqlite3 {output.db} < {output.sql}
+        python workflow/scripts/browser_neighbors.py {input.neighbors} {output.db}
         """
