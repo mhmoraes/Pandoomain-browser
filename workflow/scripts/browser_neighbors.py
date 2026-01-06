@@ -79,7 +79,7 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
     setup_database(output_db)
 
     print(f"Connecting to SQLite database: {output_db}")
-    conn = sqlite3.connect(output_db)
+    conn = sqlite3.connect(output_db, timeout=300.0)
 
     try:
         # Mapping input TSV columns to DB columns

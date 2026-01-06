@@ -260,6 +260,7 @@ rule browser_iscan:
         """
 
 
+
 rule browser_metadata:
     input:
         metadata=f"{RESULTS}/genomes_metadata.tsv",
@@ -271,6 +272,7 @@ rule browser_metadata:
         """
         python workflow/scripts/browser_metadata.py {input.metadata} {output.db}
         """
+
 
 
 rule browser_neighbors:
