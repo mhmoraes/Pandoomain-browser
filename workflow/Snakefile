@@ -149,7 +149,7 @@ rule interproscan:
                         shutil.copyfileobj(hfile, hout)
 
 
-        def gen_cmd(in_faa):
+        def gen_cmd(in_faa, out_dir):
             """
             Output formats:
             Default for protein sequences are TSV, XML and GFF3
@@ -172,6 +172,11 @@ rule interproscan:
                 str(ISCAN_TMP),
                 "--goterms",
                 "--enable-tsv-residue-annot",
+                "-dp",
+                "-d",
+                str(out_dir),
+                "-f",
+                "TSV",
             ]
             print(f"DEBUG: Running InterProScan command: {' '.join(cmd)}")
             return cmd
@@ -189,7 +194,14 @@ rule interproscan:
         ]
 
         for in_faa in in_faas:
-            sp.run(gen_cmd(in_faa), cwd=OUT_DIR, check=True)
+            try:
+                sp.run(gen_cmd(in_faa, OUT_DIR), cwd=OUT_DIR, check=True, capture_output=True, text=True)
+            except sp.CalledProcessError as e:
+                print(f"CRITICAL: InterProScan FAILED for {in_faa}")
+                print(f"CMD: {e.cmd}")
+                print("STDOUT:", e.stdout)
+                print("STDERR:", e.stderr)
+                raise e
 
         out_tsvs = [
             OUT_DIR / i for i in os.listdir(OUT_DIR) if re.search(r"\w+\.tsv$", i)
