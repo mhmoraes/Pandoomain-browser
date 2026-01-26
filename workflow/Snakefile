@@ -130,6 +130,7 @@ rule interproscan:
         import re
         import shutil
         import subprocess as sp
+        import os
         from pathlib import Path
 
         IN_DIR = Path(f"{params.in_dir}")
