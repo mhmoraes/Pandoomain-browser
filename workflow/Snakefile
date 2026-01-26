@@ -187,26 +187,34 @@ rule interproscan:
         if OUT_DIR.exists():
             shutil.rmtree(OUT_DIR)
         OUT_DIR.mkdir()
+        # Resolve to absolute path to avoid cwd confusion
+        OUT_DIR = OUT_DIR.resolve()
+        
         in_faas = [
             (IN_DIR / i).resolve()
             for i in os.listdir(IN_DIR)
             if re.search(r"\d+\.faa$", i)
         ]
 
+        print(f"DEBUG: Processing {len(in_faas)} files in {OUT_DIR}")
+
         for in_faa in in_faas:
             try:
-                sp.run(gen_cmd(in_faa, OUT_DIR), cwd=OUT_DIR, check=True, capture_output=True, text=True)
+                # Removed capture_output=True to verify output streams directly.
+                sp.run(gen_cmd(in_faa, OUT_DIR), cwd=OUT_DIR, check=True)
             except sp.CalledProcessError as e:
                 print(f"CRITICAL: InterProScan FAILED for {in_faa}")
-                print(f"CMD: {e.cmd}")
-                print("STDOUT:", e.stdout)
-                print("STDERR:", e.stderr)
+                # stdout/stderr are not available if capture_output=False, but they should have been printed to console already
                 raise e
 
+        # Check if we actually got TSV files
         out_tsvs = [
             OUT_DIR / i for i in os.listdir(OUT_DIR) if re.search(r"\w+\.tsv$", i)
         ]
-
+        
+        if not out_tsvs:
+             print("WARNING: No TSV files found in output directory!")
+             
         cat(*out_tsvs, out_file=OUT_FILE)
 
 
