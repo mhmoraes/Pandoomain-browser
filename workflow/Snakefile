@@ -124,103 +124,43 @@ rule interproscan:
         tmp="/tmp",
         pieces=f"{RESULTS}/.pieces_iscan",
         in_dir=f"{rules.split_faa.params.pieces}",
+        interproscan_cmd=lambda wc: (
+            str(Path(config.get("interproscan", "interproscan.sh")) / "interproscan.sh")
+            if Path(config.get("interproscan", "interproscan.sh")).is_dir()
+            else config.get("interproscan", "interproscan.sh")
+        ),
     threads: workflow.cores
     cache: True
-    run:
-        import re
-        import shutil
-        import subprocess as sp
-        import os
-        from pathlib import Path
-
-        import sys
-        import traceback
-
-        IN_DIR = Path(f"{params.in_dir}")
-        OUT_FILE = Path(f"{output}")
-
-        OUT_DIR = Path(f"{params.pieces}")
-        CPUS = int(f"{threads}")
-        ISCAN_TMP = Path(f"{params.tmp}")
-
-
-        def cat(*files, out_file) -> None:
-
-            with open(out_file, "wb") as hout:
-                for file in files:
-                    with open(file, "rb") as hfile:
-                        shutil.copyfileobj(hfile, hout)
-
-
-        def gen_cmd(in_faa, out_dir):
-            """
-            Output formats:
-            Default for protein sequences are TSV, XML and GFF3
-            """
-            # Handle config path: if directory, append interproscan.sh
-            raw_path = config.get("interproscan", "interproscan.sh")
-            # Only check if it looks like a path (contains slashes) to avoid checking system commands
-            if "/" in raw_path and Path(raw_path).is_dir():
-                exe = str(Path(raw_path) / "interproscan.sh")
-            else:
-                exe = raw_path
-
-            cmd = [
-                exe,
-                "--input",
-                str(in_faa),
-                "--cpu",
-                str(CPUS),
-                "--tempdir",
-                str(ISCAN_TMP),
-                "--goterms",
-                "--enable-tsv-residue-annot",
-                "-dp",
-                "-d",
-                str(out_dir),
-                "-f",
-                "TSV",
-            ]
-            print(f"DEBUG: Running InterProScan command: {' '.join(cmd)}")
-            return cmd
-
-            # main
-
-        try:
-            print(f"DEBUG: IN_DIR = {IN_DIR}")
-            print(f"DEBUG: OUT_DIR = {OUT_DIR}")
-            
-            if OUT_DIR.exists():
-                shutil.rmtree(OUT_DIR)
-            OUT_DIR.mkdir()
-
-            if not IN_DIR.exists():
-                print(f"CRITICAL: Input directory {IN_DIR} does not exist!")
-                raise FileNotFoundError(f"{IN_DIR} not found")
-
-            in_faas = [
-                (IN_DIR / i).resolve()
-                for i in os.listdir(IN_DIR)
-                if re.search(r"\d+\.faa$", i)
-            ]
-            
-            print(f"DEBUG: Found {len(in_faas)} FASTA files to process.")
-
-            for in_faa in in_faas:
-                # We do NOT capture output so it streams to the logs directly.
-                # If it fails, CalledProcessError is raised, and we will catch it in the outer block 
-                # or just let it crash (but now streaming is visible).
-                sp.run(gen_cmd(in_faa, OUT_DIR), cwd=OUT_DIR, check=True)
-
-            out_tsvs = [
-                OUT_DIR / i for i in os.listdir(OUT_DIR) if re.search(r"\w+\.tsv$", i)
-            ]
-
-            cat(*out_tsvs, out_file=OUT_FILE)
-            
-        except Exception:
-            traceback.print_exc()
-            raise
+    shell:
+        """
+        rm -rf {params.pieces}
+        mkdir -p {params.pieces}
+        
+        # Check input files
+        count=$(ls -1 {params.in_dir}/*.faa 2>/dev/null | wc -l)
+        if [ "$count" -eq 0 ]; then
+             echo "CRITICAL: No .faa files found in {params.in_dir}"
+             exit 1
+        fi
+        
+        echo "DEBUG: Found $count files in {params.in_dir}"
+        
+        for faa in {params.in_dir}/*.faa; do
+            echo "DEBUG: Running InterProScan on $faa"
+            {params.interproscan_cmd} \\
+                --input "$faa" \\
+                --cpu {threads} \\
+                --tempdir {params.tmp} \\
+                --goterms \\
+                --enable-tsv-residue-annot \\
+                -dp \\
+                -d {params.pieces} \\
+                -f TSV || {{ echo "CRITICAL: InterProScan failed for $faa"; exit 1; }}
+        done
+        
+        # Concatenate results
+        cat {params.pieces}/*.tsv > {output.iscan_raw}
+        """
 
 
 rule add_header_iscan:
