@@ -133,11 +133,17 @@ rule interproscan:
     cache: True
     shell:
         """
+        set -x # Enable debug mode to print commands
+        
         rm -rf {params.pieces}
         mkdir -p {params.pieces}
         
-        # Check input files
-        count=$(ls -1 {params.in_dir}/*.faa 2>/dev/null | wc -l)
+        # Check input files using bash arrays to avoid ls failures
+        # Ensure nullglob is set so *.faa expands to nothing if no files match
+        shopt -s nullglob
+        files=({params.in_dir}/*.faa)
+        count=${{#files[@]}}
+        
         if [ "$count" -eq 0 ]; then
              echo "CRITICAL: No .faa files found in {params.in_dir}"
              exit 1
@@ -145,7 +151,7 @@ rule interproscan:
         
         echo "DEBUG: Found $count files in {params.in_dir}"
         
-        for faa in {params.in_dir}/*.faa; do
+        for faa in "${{files[@]}}"; do
             echo "DEBUG: Running InterProScan on $faa"
             {params.interproscan_cmd} \\
                 --input "$faa" \\
