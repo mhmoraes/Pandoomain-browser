@@ -121,7 +121,7 @@ rule interproscan:
     output:
         iscan_raw=f"{RESULTS}/.iscan_raw.tsv",
     params:
-        tmp="/tmp",
+        tmp=f"{RESULTS}/.tmp_interproscan",
         pieces=f"{RESULTS}/.pieces_iscan",
         in_dir=f"{rules.split_faa.params.pieces}",
         interproscan_cmd=lambda wc: (
