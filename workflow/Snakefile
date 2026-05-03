@@ -124,22 +124,16 @@ rule interproscan:
         tmp=f"{RESULTS}/.tmp_interproscan",
         pieces=f"{RESULTS}/.pieces_iscan",
         in_dir=f"{rules.split_faa.params.pieces}",
-        interproscan_cmd=lambda wc: (
-            str(Path(config.get("interproscan", "interproscan.sh")) / "interproscan.sh")
-            if Path(config.get("interproscan", "interproscan.sh")).is_dir()
-            else config.get("interproscan", "interproscan.sh")
-        ),
+        # Change this line to assume it's in the PATH
+        interproscan_cmd="interproscan.sh", 
     threads: workflow.cores
     cache: True
     shell:
         """
-        set -x # Enable debug mode to print commands
-        
+        set -x 
         rm -rf {params.pieces}
         mkdir -p {params.pieces}
         
-        # Check input files using bash arrays to avoid ls failures
-        # Ensure nullglob is set so *.faa expands to nothing if no files match
         shopt -s nullglob
         files=({params.in_dir}/*.faa)
         count=${{#files[@]}}
@@ -149,10 +143,8 @@ rule interproscan:
              exit 1
         fi
         
-        echo "DEBUG: Found $count files in {params.in_dir}"
-        
         for faa in "${{files[@]}}"; do
-            echo "DEBUG: Running InterProScan on $faa"
+            # This will now call 'interproscan.sh' directly
             {params.interproscan_cmd} \\
                 --input "$faa" \\
                 --cpu {threads} \\
@@ -164,7 +156,6 @@ rule interproscan:
                 -f TSV || {{ echo "CRITICAL: InterProScan failed for $faa"; exit 1; }}
         done
         
-        # Concatenate results
         cat {params.pieces}/*.tsv > {output.iscan_raw}
         """
 
