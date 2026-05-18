@@ -48,5 +48,3 @@ only_refseq:
 offline:
   false
 
-# add path to interproscan
-interproscan: /home/md80/mount/rdf/md80/interproscan/interproscan-5.76-107.0

@@ -179,9 +179,11 @@ rule get_archs:
         neighbors=rules.get_neighbors.output,
     output:
         archs=f"{RESULTS}/archs.tsv",
+        pidrow=f"{RESULTS}/archs_pidrow.tsv",
+        code=f"{RESULTS}/archs_code.tsv",
     shell:
         """
-workflow/scripts/archs.R {input} >| {output}
+workflow/scripts/archs.R {input.iscan} {output.archs} {output.pidrow} {output.code}
 """
 
 
@@ -191,10 +193,11 @@ rule get_absence_presence:
         proteins=rules.get_neighbors.output,
         domains=rules.get_archs.output.archs,
     output:
+        TGPD=f"{RESULTS}/TGPD.tsv",
         absence_presence=f"{RESULTS}/absence_presence.tsv",
     shell:
         """
-workflow/scripts/absence_presence.R {input} >| {output}
+workflow/scripts/absence_presence.R {input.taxa} {input.proteins} {input.domains} {output.TGPD} {output.absence_presence}
 """
 
 
