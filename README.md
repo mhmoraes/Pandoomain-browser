@@ -204,16 +204,6 @@ Everything should now be set up and ready to run. 🚀
 
 ## Version Changes
 
-### 0.0.2
-
-+ Removal of *hmmer_input rule*.
-    + It's simpler to just use the `genomes.tsv` as input for the _hmmer rule_.
-+ Removal of preprocessing rule for `genomes.txt`.
-    + Now the dependant rules can parse `genomes.txt` directly.
-+ Fixed taxallnomy bug, caused by an updated DB.
-    + taxallnomy now has 43 cols instead of 42.
-+ Removal of utils.py
-
 ### 2.0.0
 
 + Interactive Browser Visualization
@@ -229,6 +219,17 @@ Everything should now be set up and ready to run. 🚀
 + Improved InterProScan Execution
     + Rewrote the interproscan execution logic in the Snakemake workflow for increased reliability and performance.
 Transitioned from a Python-wrapped execution to a direct bash execution model that efficiently processes chunks of .faa files, with built-in error handling for missing files and failed jobs.
+
+### 0.0.2
+
++ Removal of *hmmer_input rule*.
+    + It's simpler to just use the `genomes.tsv` as input for the _hmmer rule_.
++ Removal of preprocessing rule for `genomes.txt`.
+    + Now the dependant rules can parse `genomes.txt` directly.
++ Fixed taxallnomy bug, caused by an updated DB.
+    + taxallnomy now has 43 cols instead of 42.
++ Removal of utils.py
+
 
 
 
