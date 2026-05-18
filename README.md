@@ -216,10 +216,20 @@ Everything should now be set up and ready to run. 🚀
 
 ### 2.0.0
 
-+ In this version we implemented Pandoomain Browser. An HTML interface for easy visualization of gene neighborhood and protein domain architecture.
++ Interactive Browser Visualization
+    + Introduced a new web-based visualizer (pandoomain-browser.html) allowing users to interactively explore pipeline outputs.
+    + The pipeline now automatically generates formatted SQLite database files (iscan.db, metadata.db, neighbors.db) natively supported by the new browser interface.
 
 + Updated utils/install_Rlibs.R to use pak to install R packages
 
-+ Limited protein domain representation to characters common to different computer systems.
++ Enhanced Protein Domain Encoding
+    + Upgraded the domain architecture encoding system in archs.R to support a massive number of unique protein domains.
+    + Replaced the standard single-letter code with a high-stability, high-contrast Unicode pool. Orioritizes geometric shapes and multiple universal alphabets (Latin, Greek, Cyrillic, Armenian, Devanagari) ensuring left-to-right reading stability across massive datasets.
+
++ Improved InterProScan Execution
+    + Rewrote the interproscan execution logic in the Snakemake workflow for increased reliability and performance.
+Transitioned from a Python-wrapped execution to a direct bash execution model that efficiently processes chunks of .faa files, with built-in error handling for missing files and failed jobs.
+
+
 
 
