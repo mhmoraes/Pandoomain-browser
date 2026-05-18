@@ -19,7 +19,7 @@ PF_LEAD_CHAR <- "PF"
 # NEW: Prioritized left-to-right, high-stability character pool generator
 generate_unicode_pool <- function(total_needed) {
   # 1. High-contrast solid geometric shapes go first
-  geometric_ints <- c(0x25A0, 0x25B2, 0x25BC, 0x25B6, 0x25C0, 0x25C6, 0x25CF, 0x25C9, 0x25C8)
+  geometric_ints <- c(0x25A0, 0x25B2, 0x25BC, 0x25B6, 0x25C0, 0x25C6, 0x25CF)
   
   # 2. Universal, left-to-right reading alphabets
   ranges <- list(
@@ -34,7 +34,11 @@ generate_unicode_pool <- function(total_needed) {
     c(0x0905, 0x0939)  # U+0905 to U+0939 (Devanagari / Hindi)
   )
   
+
   preferred_ints <- unlist(lapply(ranges, function(r) r[1]:r[2]))
+  set.seed(42)
+  preferred_ints <- sample(preferred_ints)
+  
   all_preferred <- c(geometric_ints, preferred_ints)
   
   # 3. Scale smoothly into CJK Unified Ideographs for the other 22,000+ domains
