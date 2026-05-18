@@ -11,7 +11,7 @@
 
 ---
 
-## v0.0.2
+## v1.0.0
 
 I recommend using and sending patches
 to the upstream version that is at:
